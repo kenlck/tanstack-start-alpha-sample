@@ -2,6 +2,7 @@
 import * as fs from "fs";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/start";
+import { z } from "zod";
 
 const filePath = "count.txt";
 
@@ -9,14 +10,18 @@ async function readCount() {
   return parseInt(await fs.promises.readFile(filePath, "utf-8").catch(() => "0"));
 }
 
-const getCount = createServerFn("GET", () => {
+const getCount = createServerFn({ method: "GET" }).handler(() => {
   return readCount();
 });
 
-const updateCount = createServerFn("POST", async (addBy: number) => {
-  const count = await readCount();
-  await fs.promises.writeFile(filePath, `${count + addBy}`);
-});
+const updateCount = createServerFn({ method: "POST" })
+  .validator((data: number) => data)
+  .handler(async (ctx) => {
+    const addBy = ctx.data;
+    const count = await readCount();
+    await fs.promises.writeFile(filePath, `${count + addBy}`);
+    return "OK";
+  });
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -32,7 +37,7 @@ function Home() {
       <button
         className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         onClick={() => {
-          updateCount(1).then(() => {
+          updateCount({ data: 1 }).then(() => {
             router.invalidate();
           });
         }}
